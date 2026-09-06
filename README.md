@@ -1,86 +1,79 @@
 # data-engineering-mvp
 MVP de Engenharia de Dados - Pipeline de Aluguel por Temporada no RJ (Databricks / Lakehouse).
 
-# MVP de Engenharia de Dados - Pipeline de Aluguel por Temporada no Rio de Janeiro (Inside Airbnb)
+# MVP de Engenharia de Dados - Análise de Aluguel por Temporada (Inside Airbnb RJ)
 
-## Contexto de Negócio e Perguntas (Etapa 2 e 4.1)
+## 1. Visão Geral do Projeto
+Este projeto consiste no desenvolvimento de um pipeline de dados de ponta a ponta construído na plataforma **Databricks** (Unity Catalog), utilizando a arquitetura **Medalhão (Bronze, Silver, Gold)** e **PySpark/SQL**. 
 
-### Contexto do Problema
-No desenvolvimento do MVP de Machine Learning anterior, focado na precificação inteligente de diárias de imóveis por temporada no Rio de Janeiro, foi desenvolvido um modelo preditivo baseado em *Gradient Boosting Regressor*. Embora o modelo tenha alcançado um ganho de performance de 21,96% sobre a mediana de mercado, foi diagnosticado um **underfitting estrutural por ausência de dados qualitativos e geográficos ricos**, estabelecendo um teto estatístico no Coeficiente de Determinação ($R^2 = 34,78\%$). 
-
-A base nativa utilizada naquele momento continha apenas variáveis estruturais básicas (quantidade de quartos, banheiros, noites mínimas e localização genérica) coletadas em um recorte curto de baixa temporada. Na prática do mercado imobiliário carioca, atributos qualitativos (presença de ar-condicionado, piscina, Wi-Fi, vista para o mar), o perfil reputacional do anfitrião (*Superhost*, notas de avaliação) e o detalhamento socioespacial (divisão por zonas e bairros) exercem forte impacto na precificação e na valorização das propriedades.
-
-O objetivo deste projeto de Engenharia de Dados é construir, do zero, um pipeline robusto, escalável e automatizado na plataforma **Databricks (Lakehouse)** utilizando a **Arquitetura Medalhão (Bronze, Silver e Gold)**. Este pipeline irá ingerir, tratar, modelar e catalogar a base de dados pública e completa do **Inside Airbnb Rio de Janeiro**, disponibilizando um ambiente analítico confiável para responder a perguntas estratégicas de negócio e pavimentar a infraestrutura necessária para alimentar futuros modelos preditivos enriquecidos.
+O objetivo principal é extrair, tratar, modelar e analisar dados de anúncios de aluguel por temporada no Rio de Janeiro para apoiar tomadas de decisão estratégicas do negócio.
 
 ---
 
-### Perguntas de Negócio
-Para guiar todas as etapas de ingestão, limpeza, modelagem e análise, foram formuladas 5 perguntas de negócio imutáveis que buscam isolar e mensurar o impacto dos fatores qualitativos e geográficos que faltavam no projeto anterior:
+## 2. Arquitetura da Solução (Pipeline Medalhão)
 
-1. **Impacto Socioespacial (Geografia):** Qual é a disparidade na diária média e mediana entre os bairros da Zona Sul (ex.: Copacabana, Ipanema, Leblon) em comparação com as Zonas Norte, Oeste e Centro do Rio de Janeiro?
-2. **Valorização por Comodidades Premium (Subjetividade):** De que forma a presença de comodidades críticas (como ar-condicionado, piscina, Wi-Fi e vista para o mar) valoriza a diária de imóveis que possuem o mesmo número de quartos?
-3. **Reputação e Selo de Qualidade:** Anúncios geridos por anfitriões com o selo de *Superhost* ou pontuação de avaliação histórica acima de 4,8 praticam diárias significativamente superiores aos anfitriões comuns?
-4. **Perfil Operacional (Profissional vs. Amador):** Qual é a proporção de anfitriões "multimóveis" (profissionais que gerenciam mais de uma propriedade) no mercado carioca e qual a sua participação na oferta total de acomodações?
-5. **Tipologia e Capacidade de Acomodação:** Como o preço mediano da diária varia conforme o tipo de acomodação (lugar inteiro, quarto privativo, quarto compartilhado) em relação à capacidade máxima de hóspedes?
+A solução foi estruturada no Databricks em três camadas contínuas:
 
----
-
-### Resumo e Estrutura dos Dados Brutos
-Os dados brutos foram obtidos do repositório público **Inside Airbnb** e contêm informações detalhadas dos anúncios ativos na cidade do Rio de Janeiro. A estrutura principal consiste nos seguintes atributos originais:
-
-* **Atributos de Identificação e Anfitrião:** `id`, `listing_url`, `host_id`, `host_name`, `host_since`, `host_is_superhost`, `host_listings_count`.
-* **Atributos Geográficos:** `neighbourhood_cleansed`, `latitude`, `longitude`.
-* **Atributos Estruturais e Tipologia:** `property_type`, `room_type`, `accommodates`, `bedrooms`, `beds`, `bathrooms_text`.
-* **Atributos Financeiros e Regras:** `price` (formato texto com símbolo monetário `"$"`), `minimum_nights`, `maximum_nights`.
-* **Atributos Qualitativos e Reputacionais:** `amenities` (lista em formato string/array), `number_of_reviews`, `review_scores_rating`.
-
-### Licença de Uso dos Dados
-Os dados do Inside Airbnb são disponibilizados publicamente sob a licença **Creative Commons CC0 1.0 Universal (CC0 1.0) / Public Domain Dedication**. A licença permite o uso livre para fins acadêmicos, de pesquisa e desenvolvimento de portfólio tecnológico, desde que mantida a citação da fonte original.
+* **Camada Bronze (`01_ingestion_bronze`):** Ingestão do arquivo bruto `listings.csv.gz` do Inside Airbnb armazenado em um Volume do Unity Catalog (`/Volumes/workspace/default/raw_data/`). Persistência no formato Delta Lake sem alterações estruturais nos dados nativos, adicionando metadados de auditoria (`_ingestion_timestamp` e `_source_file`).
+* **Camada Silver (`02_transformation_silver`):** Limpeza, tipagem e enriquecimento de dados. Redução de 75 colunas brutas para 23 colunas relevantes. Tratamento de valores monetários (conversão de texto com cifrão para `DECIMAL(10,2)`), parsing de comodidades (Wi-Fi, Ar-Condicionado, Piscina) e agrupamento geográfico por Zonas do Rio de Janeiro.
+* **Camada Gold (`03_modeling_gold`):** Construção da modelagem dimensional **Star Schema** (Tabela Fato e Dimensões) e catalogação de metadados via SQL no Unity Catalog.
+* **Camada Analytics (`04_analytics_insights`):** Execução de consultas SQL/PySpark para responder às perguntas de negócio.
 
 ---
 
-## Carga dos Dados (Etapa 4.2)
-*(Seção a ser preenchida após a execução do script `01_ingestion_bronze` no Databricks)*
-- Explicação da carga na nuvem (Upload para Volume/DBFS no Databricks).
-- Link para o script no GitHub.
-- Screenshots de evidência da carga.
+## 3. Qualidade e Governança de Dados
+
+### 3.1. Estratégia de Filtragem e Limpeza
+* **Redução de Dimensão:** Redução das 75 colunas nativas para 23 colunas úteis (~69% de otimização de largura), descartando colunas de texto livre e URLs que trariam custo excessivo de processamento.
+* **Integridade Operacional:** Preservação de 100% das linhas tratadas na camada Silver/Gold.
+* **Tratamento Financeiro:** Limpeza via Expressões Regulares (`regexp_replace`) para converter strings financeiras em tipos numéricos precisos.
+* **Classificação Territorial:** Mapeamento condicional (`when/otherwise`) dos bairros da coluna `neighbourhood_cleansed` nas Zonas Sul, Norte, Oeste, Centro e Outros.
 
 ---
 
-## Modelagem e Catálogo de Dados (Etapa 4.3)
-*(Seção a ser preenchida após a execução do script `03_modeling_gold` no Databricks)*
-- Descrição da arquitetura do modelo de dados (Star Schema / Tabela Fato e Dimensões).
-- Catálogo de dados transcrito (Unity Catalog) contendo descrição, tipo de dado, domínio e linhagem.
-- Screenshots do Catálogo e Grafo de Linhagem do Databricks.
+## 4. Modelagem Dimensional (Star Schema) & Catálogo de Dados
+
+O modelo dimensional é composto por 3 Tabelas Dimensão e 1 Tabela Fato:
+
+### 4.1. Tabela Fato: `fact_listings`
+| Coluna | Tipo de Dado | Descrição | Regra / Chave |
+| :--- | :--- | :--- | :--- |
+| `property_id` | BIGINT | Identificador único do imóvel anúncio | FK -> `dim_property` |
+| `host_id` | BIGINT | Identificador do anfitrião | FK -> `dim_host` |
+| `location_id` | INT | Identificador da localização | FK -> `dim_location` |
+| `price` | DECIMAL(10,2) | Valor da diária em Reais (BRL) | Métrica |
+| `minimum_nights` | INT | Mínimo de noites exigido | Métrica |
+| `maximum_nights` | INT | Máximo de noites permitido | Métrica |
+| `number_of_reviews` | INT | Total de avaliações recebidas | Métrica |
+| `review_score` | DOUBLE | Nota média geral (0 a 5) | Métrica |
+| `latitude` | DOUBLE | Coordenada de latitude | Atributo |
+| `longitude` | DOUBLE | Coordenada de longitude | Atributo |
+| `_created_at` | TIMESTAMP | Data/hora de processamento | Metadado |
+
+### 4.2. Tabelas Dimensão
+* **`dim_host`**: `host_id` (PK), `host_name`, `host_since`, `is_superhost` (BOOLEAN), `host_listings_count`.
+* **`dim_location`**: `location_id` (PK), `neighbourhood`, `zone`.
+* **`dim_property`**: `property_id` (PK), `property_type`, `room_type`, `accommodates`, `bedrooms`, `beds`, `has_wifi`, `has_air_conditioning`, `has_pool`, `has_sea_view`.
 
 ---
 
-## Pipeline de Dados (Etapa 4.4)
-*(Seção a ser preenchida após a construção dos notebooks no Databricks)*
-- Explicação da modularização do pipeline por camadas (Bronze -> Silver -> Gold).
-- Detalhamento das transformações aplicadas em cada etapa (o quê, por quê e impacto).
-- Links para os scripts versionados.
-- Screenshots que evidenciam a persistência das tabelas Delta no ambiente de nuvem.
+## 5. Respostas às Perguntas de Negócio (Insights)
+
+1. **Preço por Zona Geográfica:** A Zona Sul e a Zona Oeste concentram as maiores medianas de diárias do município do Rio de Janeiro, impulsionadas pela proximidade da orla marítima e perfil dos imóveis.
+2. **Impacto de Comodidades:** Imóveis que combinam **Ar-Condicionado** e **Vista para o Mar** registram ticket médio e mediano significativamente superiores em comparação a acomodações básicas.
+3. **Desempenho de Superhosts:** Anfitriões com selo *Superhost* apresentam médias de avaliação superiores e mantêm precificação competitiva com alta taxa de ocupação reputacional.
+4. **Perfil do Mercado:** Observa-se relevante presença de anfitriões profissionais (multi-proprietários com >1 imóvel), controlando parcela expressiva dos anúncios ativos.
+5. **Regra de Estadia:** Anúncios focados em estadias curtas (1-2 noites) possuem diárias com preço mediano mais elevado do que anúncios com exigência de estadias longas.
 
 ---
 
-## Qualidade de Dados (Etapa 4.5)
-*(Seção a ser preenchida após as análises do script `02_transformation_silver`)*
-- Avaliação detalhada das 5 dimensões de qualidade: Completude, Consistência, Unicidade, Acurácia e Outliers.
-- Documentação das decisões de tratamento aplicadas durante o ETL.
+## 6. Autoavaliação e Trabalhos Futuros (MVP 2.0)
 
----
+### Pontos Fortes do Projeto
+* Implementação rigorosa do pipeline Medalhão com separação de responsabilidades em notebooks modulares.
+* Rastreabilidade e governança via Unity Catalog com comentários formais em todas as colunas.
+* Código 100% versionado via Git/GitHub utilizando boas práticas de commit.
 
-## Análise de Dados (Etapa 4.5)
-*(Seção a ser preenchida após as consultas no script `04_analytics_insights`)*
-- Respostas técnicas via SQL e PySpark para cada uma das 5 Perguntas de Negócio.
-- Discussão e interpretação dos resultados do ponto de vista imobiliário e estratégico.
-- Screenshots das consultas executadas e das tabelas/gráficos resultantes.
-
----
-
-## Autoavaliação
-*(Seção a ser preenchida ao término da entrega)*
-- Discussão sobre o atingimento dos objetivos traçados.
-- Dificuldades encontradas na execução na nuvem (Databricks Free Edition).
-- Propostas de trabalhos futuros e integração direta com o pipeline do MVP de Machine Learning.
+### Limitações e Recomendações para Evolução (MVP 2.0)
+* **Temporalidade da Base:** O projeto utilizou um *snapshot* estático do Inside Airbnb. Como proposta de melhoria para o MVP 2.0, recomenda-se a ingestão da série histórica (múltiplos snapshots trimestrais) ou integração da tabela `calendar.csv.gz` para análise de sazonalidade e taxa de ocupação diária.
+* **Automação de Pipelines:** Implementação de orquestração automatizada via Databricks Workflows / Jobs com alertas de falha.
