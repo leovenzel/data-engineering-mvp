@@ -1,79 +1,135 @@
-# data-engineering-mvp
-MVP de Engenharia de Dados - Pipeline de Aluguel por Temporada no RJ (Databricks / Lakehouse).
+# MVP de Engenharia de Dados - Pipeline Medalhão & Governança no Databricks (Inside Airbnb RJ)
 
-# MVP de Engenharia de Dados - Análise de Aluguel por Temporada (Inside Airbnb RJ)
+## 1. Contexto de Negócio e Motivação
 
-## 1. Visão Geral do Projeto
-Este projeto consiste no desenvolvimento de um pipeline de dados de ponta a ponta construído na plataforma **Databricks** (Unity Catalog), utilizando a arquitetura **Medalhão (Bronze, Silver, Gold)** e **PySpark/SQL**. 
+### 1.1. Conexão e Evolução em Relação ao MVP de Machine Learning
+No projeto anterior, focado no desenvolvimento de um modelo preditivo para estimativa de diárias por temporada no Rio de Janeiro (via *Gradient Boosting Regressor*), identificou-se uma limitação crítica nos dados consumidos: o **Underfitting Estrutural por Ausência de Dados Qualitativos**. O modelo de ML ficou restrito a variáveis quantitativas e físicas (como número de quartos e banheiros), atingindo um teto de aprendizado ($R^2 = 0.3478$). Naquele relatório, apontou-se como evolução indispensável a estruturação de dados qualitativos e reputacionais (comodidades como ar-condicionado, piscina, vista para o mar, notas de avaliação e selo de *Superhost*).
 
-O objetivo principal é extrair, tratar, modelar e analisar dados de anúncios de aluguel por temporada no Rio de Janeiro para apoiar tomadas de decisão estratégicas do negócio.
+Este MVP de Engenharia de Dados **não busca retreinar ou alterar o modelo preditivo anterior**. Seu propósito é construir a infraestrutura moderna de Lakehouse que viabilize, padronize e facilite análises e modelagens futuras. Através da arquitetura Medalhão no Databricks, este trabalho atua como a camada fundacional de Engenharia, transformando dados brutos e desestruturados em um catálogo governado e modelado.
 
----
+### 1.2. Objetivo do Trabalho
+O objetivo principal é projetar, implementar e validar um **pipeline de dados de ponta a ponta (End-to-End Data Pipeline)** na plataforma **Databricks**, seguindo a **Arquitetura Medalhão (Camadas Bronze, Silver e Gold)** sob a governança do **Unity Catalog**. 
 
-## 2. Arquitetura da Solução (Pipeline Medalhão)
-
-A solução foi estruturada no Databricks em três camadas contínuas:
-
-* **Camada Bronze (`01_ingestion_bronze`):** Ingestão do arquivo bruto `listings.csv.gz` do Inside Airbnb armazenado em um Volume do Unity Catalog (`/Volumes/workspace/default/raw_data/`). Persistência no formato Delta Lake sem alterações estruturais nos dados nativos, adicionando metadados de auditoria (`_ingestion_timestamp` e `_source_file`).
-* **Camada Silver (`02_transformation_silver`):** Limpeza, tipagem e enriquecimento de dados. Redução de 75 colunas brutas para 23 colunas relevantes. Tratamento de valores monetários (conversão de texto com cifrão para `DECIMAL(10,2)`), parsing de comodidades (Wi-Fi, Ar-Condicionado, Piscina) e agrupamento geográfico por Zonas do Rio de Janeiro.
-* **Camada Gold (`03_modeling_gold`):** Construção da modelagem dimensional **Star Schema** (Tabela Fato e Dimensões) e catalogação de metadados via SQL no Unity Catalog.
-* **Camada Analytics (`04_analytics_insights`):** Execução de consultas SQL/PySpark para responder às perguntas de negócio.
+O projeto resolve a complexidade de ingestão, higienização, tipagem e modelagem dimensional de dados não estruturados de aluguel por temporada, entregando um **Star Schema (Esquema Estrela)** documentado que responde às dúvidas estratégicas do negócio de forma automatizada e reprodutível.
 
 ---
 
-## 3. Qualidade e Governança de Dados
+## 2. Contexto dos Dados Brutos e Licenciamento
 
-### 3.1. Estratégia de Filtragem e Limpeza
-* **Redução de Dimensão:** Redução das 75 colunas nativas para 23 colunas úteis (~69% de otimização de largura), descartando colunas de texto livre e URLs que trariam custo excessivo de processamento.
-* **Integridade Operacional:** Preservação de 100% das linhas tratadas na camada Silver/Gold.
-* **Tratamento Financeiro:** Limpeza via Expressões Regulares (`regexp_replace`) para converter strings financeiras em tipos numéricos precisos.
-* **Classificação Territorial:** Mapeamento condicional (`when/otherwise`) dos bairros da coluna `neighbourhood_cleansed` nas Zonas Sul, Norte, Oeste, Centro e Outros.
+### 2.1. Fonte de Dados e Licença
+Os dados são oriundos da plataforma aberta **Inside Airbnb**, projeto independente que disponibiliza dados públicos extraídos (*scraped*) do site do Airbnb para fins de análise e transparência urbana.
 
----
+* **Fonte Original:** [Inside Airbnb - Rio de Janeiro Dataset](http://insideairbnb.com/get-the-data.html)
+* **Licenciamento:** Disponibilizados sob a licença **Creative Commons Attribution 4.0 International (CC BY 4.0)**, permitindo uso, compartilhamento e adaptação mediante citação da fonte.
+* **Data de Coleta (*Snapshot*):** A base consumida refere-se a uma foto estática extraída na varredura do dia **24 de junho de 2026**.
 
-## 4. Modelagem Dimensional (Star Schema) & Catálogo de Dados
-
-O modelo dimensional é composto por 3 Tabelas Dimensão e 1 Tabela Fato:
-
-### 4.1. Tabela Fato: `fact_listings`
-| Coluna | Tipo de Dado | Descrição | Regra / Chave |
-| :--- | :--- | :--- | :--- |
-| `property_id` | BIGINT | Identificador único do imóvel anúncio | FK -> `dim_property` |
-| `host_id` | BIGINT | Identificador do anfitrião | FK -> `dim_host` |
-| `location_id` | INT | Identificador da localização | FK -> `dim_location` |
-| `price` | DECIMAL(10,2) | Valor da diária em Reais (BRL) | Métrica |
-| `minimum_nights` | INT | Mínimo de noites exigido | Métrica |
-| `maximum_nights` | INT | Máximo de noites permitido | Métrica |
-| `number_of_reviews` | INT | Total de avaliações recebidas | Métrica |
-| `review_score` | DOUBLE | Nota média geral (0 a 5) | Métrica |
-| `latitude` | DOUBLE | Coordenada de latitude | Atributo |
-| `longitude` | DOUBLE | Coordenada de longitude | Atributo |
-| `_created_at` | TIMESTAMP | Data/hora de processamento | Metadado |
-
-### 4.2. Tabelas Dimensão
-* **`dim_host`**: `host_id` (PK), `host_name`, `host_since`, `is_superhost` (BOOLEAN), `host_listings_count`.
-* **`dim_location`**: `location_id` (PK), `neighbourhood`, `zone`.
-* **`dim_property`**: `property_id` (PK), `property_type`, `room_type`, `accommodates`, `bedrooms`, `beds`, `has_wifi`, `has_air_conditioning`, `has_pool`, `has_sea_view`.
+### 2.2. Volumetria e Estrutura dos Dados Brutos
+* **Volumetria Exata:** O arquivo bruto `listings.csv.gz` contém exatamente **48.713 registros (anúncios)** e **90 colunas nativas** abrangendo o município do Rio de Janeiro.
+* **Complexidade Estrutural:** Combinação de textos livres desestruturados (`description`), URLs de mídia, listas de comodidades codificadas em string (`amenities`), valores monetários formatados como texto (`"$1,200.00"`), datas, variáveis reputacionais e coordenadas geográficas.
+* **Tratamento de Ingestão:** O arquivo apresenta quebras de linha internas nos campos de texto (`\n`), exigindo configurações específicas de *parsing* CSV multilinha na camada Bronze para evitar corrupção na contagem de registros.
 
 ---
 
-## 5. Respostas às Perguntas de Negócio (Insights)
+## 3. Formulação das Perguntas de Negócio
 
-1. **Preço por Zona Geográfica:** A Zona Sul e a Zona Oeste concentram as maiores medianas de diárias do município do Rio de Janeiro, impulsionadas pela proximidade da orla marítima e perfil dos imóveis.
-2. **Impacto de Comodidades:** Imóveis que combinam **Ar-Condicionado** e **Vista para o Mar** registram ticket médio e mediano significativamente superiores em comparação a acomodações básicas.
-3. **Desempenho de Superhosts:** Anfitriões com selo *Superhost* apresentam médias de avaliação superiores e mantêm precificação competitiva com alta taxa de ocupação reputacional.
-4. **Perfil do Mercado:** Observa-se relevante presença de anfitriões profissionais (multi-proprietários com >1 imóvel), controlando parcela expressiva dos anúncios ativos.
-5. **Regra de Estadia:** Anúncios focados em estadias curtas (1-2 noites) possuem diárias com preço mediano mais elevado do que anúncios com exigência de estadias longas.
+Para direcionar as transformações da Camada Silver e a modelagem dimensional da Camada Gold, foram estabelecidas **5 Perguntas de Negócio**:
+
+1. **Variação Territorial de Preços:** Qual é o preço médio e mediano das diárias praticadas nos imóveis em cada Zona Geográfica do Rio de Janeiro (Zona Sul, Zona Norte, Zona Oeste, Centro e Outros)?
+2. **Valoração de Comodidades Críticas:** Qual é o impacto financeiro na mediana de preço das diárias ao comparar imóveis que possuem comodidades de alto valor percebido (como Ar-Condicionado e Vista para o Mar) versus imóveis básicos?
+3. **Análise Reputacional (Superhosts):** Anfitriões detentores do selo *Superhost* praticam preços superiores e possuem notas médias de avaliação mais altas em relação aos anfitriões comuns?
+4. **Perfil de Oferta e Profissionalização:** Qual é a distribuição do mercado entre anfitriões individuais (amadores) e multi-proprietários (profissionais com mais de 1 imóvel), e como o preço varia entre esses perfis?
+5. **Regras Operacionais e Precificação:** Como a exigência do número mínimo de noites de reserva (estadias curtas de 1-2 noites vs. estadias médias/longas) se relaciona com o valor da diária?
 
 ---
 
-## 6. Autoavaliação e Trabalhos Futuros (MVP 2.0)
+## 4. Carga e Ingestão de Dados (Camada Bronze)
 
-### Pontos Fortes do Projeto
-* Implementação rigorosa do pipeline Medalhão com separação de responsabilidades em notebooks modulares.
-* Rastreabilidade e governança via Unity Catalog com comentários formais em todas as colunas.
-* Código 100% versionado via Git/GitHub utilizando boas práticas de commit.
+### 4.1. Estratégia de Coleta e Armazenamento Bruto
+A etapa de coleta e ingestão dos dados (*Data Ingestion*) foi projetada para garantir a rastreabilidade e a reprodutibilidade integral da fonte original sem modificar as características nativas do conjunto de dados:
 
-### Limitações e Recomendações para Evolução (MVP 2.0)
-* **Temporalidade da Base:** O projeto utilizou um *snapshot* estático do Inside Airbnb. Como proposta de melhoria para o MVP 2.0, recomenda-se a ingestão da série histórica (múltiplos snapshots trimestrais) ou integração da tabela `calendar.csv.gz` para análise de sazonalidade e taxa de ocupação diária.
-* **Automação de Pipelines:** Implementação de orquestração automatizada via Databricks Workflows / Jobs com alertas de falha.
+* **Mecanismo de Download e Armazenamento:** O arquivo compactado `listings.csv.gz` (contendo os **48.713 registros** e **90 colunas nativas** do *snapshot* de 24/06/2026) foi importado diretamente para o ambiente de nuvem do Databricks e armazenado em um **Volume do Unity Catalog** no caminho gerenciado:
+  `/Volumes/workspace/default/raw_data/listings.csv.gz`
+* **Benefício de Governança:** O uso de Volumes no Unity Catalog permite que a camada bruta permaneça isolada, segura e acessível via controle de acesso baseado em papéis (RBAC), prevenindo alterações acidentais na fonte de dados nativa.
+
+![Volume raw_data no Unity Catalog](./docs/01_volume_raw_data.png)
+
+*Figura 1: Arquivo bruto listings.csv.gz armazenado no Volume raw_data do Unity Catalog.*
+
+### 4.2. Execução Técnica do Pipeline de Ingestão (`01_ingestion_bronze`)
+A carga dos dados brutos para o Data Lakehouse foi automatizada através do script PySpark desenvolvido no notebook **`01_ingestion_bronze`**, localizado na raiz do repositório no GitHub.
+
+* **Tratamento de Desafios da Fonte Bruta:** Devido ao fato de as descrições dos imóveis conterem quebras de linha (`\n`) e caracteres especiais (como vírgulas e aspas internas), o script de ingestão configurou parâmetros específicos no leitor do Spark para evitar corrupção na contagem de linhas:
+  * `multiline=True`: Permite que o parser interprete textos longos que se estendem por múltiplas linhas sem criar registros inválidos.
+  * `quote='"'` e `escape='"'`: Garantem a correta identificação dos delimitadores de texto.
+  * `inferSchema=True`: Permite a inferência inicial dos tipos de dados para auditoria.
+
+* **Persistência em Tabela Delta Lake (`bronze_listings`):**
+  Os dados brutos foram salvos na tabela gerenciada `workspace.default.bronze_listings` utilizando o formato aberto **Delta Lake**. Para garantir a rastreabilidade e auditoria da ingestão, foram injetadas duas colunas de metadados operacionais:
+  * `_ingestion_timestamp`: Data e hora exatas da execução do pipeline.
+  * `_source_file`: Identificador do arquivo de origem.
+
+```python
+# Trecho do script PySpark de Ingestão (01_ingestion_bronze)
+raw_path = "/Volumes/workspace/default/raw_data/listings.csv.gz"
+
+df_raw = spark.read.format("csv") \
+    .option("header", "true") \
+    .option("inferSchema", "true") \
+    .option("multiline", "true") \
+    .option("quote", '"') \
+    .option("escape", '"') \
+    .load(raw_path)
+
+# Adição de Metadados de Auditoria e Persistência na Camada Bronze
+from pyspark.sql.functions import current_timestamp, lit
+
+df_bronze = df_raw \
+    .withColumn("_ingestion_timestamp", current_timestamp()) \
+    .withColumn("_source_file", lit("listings.csv.gz"))
+
+df_bronze.write.format("delta") \
+    .mode("overwrite") \
+    .option("overwriteSchema", "true") \
+    .saveAsTable("workspace.default.bronze_listings")
+
+```
+
+* **Referência ao Código Fonte:** O código completo e executável desta etapa encontra-se versionado no repositório no arquivo [`01_ingestion_bronze.ipynb`](https://www.google.com/search?q=./01_ingestion_bronze).
+
+![Amostra da Tabela Bronze](./docs/02_bronze_table_sample.png)
+
+*Figura 2: Registros brutos persistidos na tabela Delta bronze_listings com colunas de auditoria.*
+
+## 5. Arquitetura do Pipeline de Dados ETL (`Etapa 4.4`)
+
+### 5.1. Organização e Modularização do Pipeline
+Para garantir manutenibilidade, reuso de código, isolamento de falhas e auditoria em ambiente produtivo, o processo de ETL/ELT não foi concentrado em um único script monolítico. O pipeline foi estrategicamente desacoplado em **4 notebooks especializados**, executados de forma sequencial e alinhados às etapas da Arquitetura Medalhão:
+
+1. **`01_ingestion_bronze.ipynb` (Camada Bronze):** Automação da coleta e ingestão da fonte bruta (`listings.csv.gz`) armazenada no Volume do Unity Catalog, persistindo a tabela `bronze_listings` com injeção de colunas de auditoria (`_ingestion_timestamp` e `_source_file`).
+2. **`02_transformation_silver.ipynb` (Camada Silver):** Execução da limpeza pesada, filtros geográficos do município do Rio de Janeiro, deduplicação, sanitização de caracteres monetários via expressão regular, *casting* de tipos de dados e *parsing* do campo desestruturado `amenities`.
+3. **`03_modeling_gold.ipynb` (Camada Gold):** Implementação da modelagem dimensional em **Star Schema**, dividindo os dados purificados em **1 Tabela Fato** (`fact_listings`) e **3 Tabelas Dimensão** (`dim_host`, `dim_location` e `dim_property`).
+4. **`04_analytics_insights.ipynb` (Camada Analytics):** Execução de consultas analíticas em Spark SQL / PySpark agregando métricas para responder de forma quantitativa às 5 Perguntas de Negócio formuladas na Etapa 4.1.
+
+### 5.2. Governança, Persistência na Nuvem e Repositório
+Todas as tabelas do pipeline são salvas e governadas nativamente na nuvem através do metastore do **Unity Catalog** sob o schema `workspace.default`. A persistência utiliza o formato aberto **Delta Lake**, garantindo suporte a transações ACID, otimização de leitura e versionamento histórico dos dados (*Time Travel*).
+
+```python
+# Mapeamento do fluxo de persistência no Lakehouse (Unity Catalog)
+# Bronze  -> workspace.default.bronze_listings
+# Silver  -> workspace.default.silver_listings
+# Gold    -> workspace.default.fact_listings (Fato)
+#            workspace.default.dim_host (Dimensão)
+#            workspace.default.dim_location (Dimensão)
+#            workspace.default.dim_property (Dimensão)
+
+```
+
+* **Referência aos Scripts no GitHub:** Os notebooks executáveis do pipeline encontram-se versionados na raiz do repositório:
+  * [`01_ingestion_bronze.ipynb`](./01_ingestion_bronze.ipynb)
+  * [`02_transformation_silver.ipynb`](./02_transformation_silver.ipynb)
+  * [`03_modeling_gold.ipynb`](./03_modeling_gold.ipynb)
+  * [`04_analytics_insights.ipynb`](./04_analytics_insights.ipynb)
+
+![Tabelas Persistidas no Unity Catalog](./docs/03_pipeline_tables_catalog.png)
+
+*Figura 3: Visão geral do Catalog Explorer no schema default evidenciando a persistência física e governança de todas as tabelas do pipeline (Bronze, Silver e Gold) no Unity Catalog.*
