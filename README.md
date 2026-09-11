@@ -239,3 +239,135 @@ A execução do notebook de auditoria [`00_exploracao_silver.ipynb`](./00_explor
 | **Governança & Rastreabilidade** | Sem controle de versão de dados (*data lineage*) | **Arquitetura Medallion (Bronze/Silver/Gold) + Audit via `_processed_timestamp` no Unity Catalog** |
 
 * **Referência ao Código de Auditoria:** O diagnóstico completo e a listagem de colunas/tipos encontram-se versionados no notebook [`00_exploracao_silver.ipynb`](./00_exploracao_silver.ipynb).
+
+---
+
+## 7. Modelagem e Catálogo de Dados (Etapa 4.3 - Camada Gold)
+
+### 7.1. Arquitetura da Modelagem Dimensional (Star Schema)
+Para viabilizar consultas analíticas de alta performance e responder às Perguntas de Negócio formuladas na Etapa 4.1, a camada Gold foi estruturada no padrão **Star Schema (Esquema Estrela)**. 
+
+A modelagem desacoplou a tabela plana purificada da camada Silver (`silver_listings`) em **1 Tabela Fato central** e **3 Tabelas Dimensão**, eliminando redundâncias de armazenamento, otimizando a execução de *joins* e garantindo a governança centralizada no **Unity Catalog**:
+
+* **`fact_listings` (Tabela Fato):** Centraliza os eventos e métricas quantitativas e transacionais do negócio (`price`, `minimum_nights`, `number_of_reviews`, `review_scores_rating`), contendo as Chaves Estrangeiras (*FKs*) que se conectam às dimensões relacionais.
+* **`dim_host` (Tabela Dimensão):** Armazena os atributos reputacionais e o perfil dos anfitriões (`host_is_superhost`, indicador de multi-proprietário).
+* **`dim_location` (Tabela Dimensão):** Gerencia a granularidade geográfica (`neighbourhood`, coordenadas de latitude/longitude e o agrupamento em macrozonas).
+* **`dim_property` (Tabela Dimensão):** Detalha a tipologia física dos imóveis (`property_type`, `room_type`, `accommodates`, `bedrooms`, `beds`) e os atributos binários de comodidades.
+
+#### Diagrama de Entidade e Relacionamento (ERD)
+```mermaid
+erDiagram
+    fact_listings {
+        bigint listing_id PK
+        bigint host_id FK
+        string location_id FK
+        string property_id FK
+        decimal price
+        int minimum_nights
+        int number_of_reviews
+        double review_scores_rating
+    }
+    
+    dim_host {
+        bigint host_id PK
+        boolean host_is_superhost
+        boolean is_multi_host
+    }
+
+    dim_location {
+        string location_id PK
+        string neighbourhood
+        string macro_zone
+        double latitude
+        double longitude
+    }
+
+    dim_property {
+        string property_id PK
+        string property_type
+        string room_type
+        int accommodates
+        int bedrooms
+        int beds
+        boolean has_air_conditioning
+        boolean has_sea_view
+    }
+
+    dim_host ||--o{ fact_listings : "1 : N"
+    dim_location ||--o{ fact_listings : "1 : N"
+    dim_property ||--o{ fact_listings : "1 : N"
+```
+
+---
+
+### 7.2. Documentação e Transcrição do Catálogo de Dados
+
+#### 1. Tabela Fato: `workspace.default.fact_listings`
+* **Descrição:** Centraliza as métricas monetárias e operacionais quantitativas dos anúncios ativados no Rio de Janeiro.
+
+| Nome da Coluna | Tipo de Dado | Restrição (Constraint) | Descrição do Campo |
+| :--- | :--- | :--- | :--- |
+| `listing_id` | `BIGINT` | Primary Key | Identificador único do anúncio no Airbnb. |
+| `host_id` | `BIGINT` | Foreign Key (`dim_host`) | Chave de ligação relacional com a dimensão de anfitriões. |
+| `location_id` | `STRING` | Foreign Key (`dim_location`) | Chave (Hash MD5/SHA) de ligação com a dimensão geográfica. |
+| `property_id` | `STRING` | Foreign Key (`dim_property`) | Chave (Hash MD5/SHA) de ligação com a dimensão do imóvel. |
+| `price` | `DECIMAL(10,2)` | Not Null | Valor em reais (R$) da diária do imóvel. |
+| `minimum_nights` | `INT` | Not Null | Quantidade mínima de noites exigida para reserva. |
+| `number_of_reviews` | `INT` | Not Null | Total acumulado de avaliações recebidas pelo imóvel. |
+| `review_scores_rating` | `DOUBLE` | Nullable | Nota média de avaliação do imóvel (escala de 0.00 a 5.00). |
+
+---
+
+#### 2. Tabela Dimensão: `workspace.default.dim_host`
+* **Descrição:** Centraliza o perfil reputacional e a estrutura de portfólio dos anfitriões.
+
+| Nome da Coluna | Tipo de Dado | Restrição | Descrição do Campo |
+| :--- | :--- | :--- | :--- |
+| `host_id` | `BIGINT` | Primary Key | Identificador único do anfitrião na plataforma. |
+| `host_is_superhost` | `BOOLEAN` | Not Null | Flag binária do selo de qualidade Superhost (`TRUE`/`FALSE`). |
+| `is_multi_host` | `BOOLEAN` | Not Null | Flag que indica se o anfitrião possui 2 ou mais imóveis sob gestão. |
+
+---
+
+#### 3. Tabela Dimensão: `workspace.default.dim_location`
+* **Descrição:** Estrutura a hierarquia territorial e o posicionamento geográfico dos imóveis.
+
+| Nome da Coluna | Tipo de Dado | Restrição | Descrição do Campo |
+| :--- | :--- | :--- | :--- |
+| `location_id` | `STRING` | Primary Key | Chave primária de identificação da localização. |
+| `neighbourhood` | `STRING` | Not Null | Nome oficial do bairro no município do Rio de Janeiro. |
+| `macro_zone` | `STRING` | Not Null | Agrupamento regional (`Zona Sul`, `Zona Norte`, `Zona Oeste`, `Centro`, `Outros`). |
+| `latitude` | `DOUBLE` | Not Null | Coordenada geográfica de latitude decimal. |
+| `longitude` | `DOUBLE` | Not Null | Coordenada geográfica de longitude decimal. |
+
+---
+
+#### 4. Tabela Dimensão: `workspace.default.dim_property`
+* **Descrição:** Classifica a infraestrutura física e os atributos de comodidade das acomodações.
+
+| Nome da Coluna | Tipo de Dado | Restrição | Descrição do Campo |
+| :--- | :--- | :--- | :--- |
+| `property_id` | `STRING` | Primary Key | Chave primária de identificação da acomodação. |
+| `property_type` | `STRING` | Not Null | Classificação técnica do imóvel (ex: Apartment, House). |
+| `room_type` | `STRING` | Not Null | Tipo de reserva (ex: Entire home/apt, Private room). |
+| `accommodates` | `INT` | Not Null | Capacidade máxima de hóspedes suportada. |
+| `bedrooms` | `INT` | Nullable | Número de quartos disponíveis. |
+| `beds` | `INT` | Nullable | Número de camas disponíveis. |
+| `has_air_conditioning` | `BOOLEAN` | Not Null | Flag indicativa de presença de Ar-Condicionado (`TRUE`/`FALSE`). |
+| `has_sea_view` | `BOOLEAN` | Not Null | Flag indicativa de presença de Vista para o Mar (`TRUE`/`FALSE`). |
+
+---
+
+### 7.3. Evidência de Implementação e Registro no Catálogo
+
+A persistência do modelo dimensional foi executada no notebook [`03_modeling_gold.ipynb`](./03_modeling_gold.ipynb), gravando as tabelas no formato **Delta Lake** sob a governança do **Unity Catalog**:
+
+![Modelagem Gold no Unity Catalog Explorer](./docs/05_gold_star_schema_tables.png)
+
+*Figura 5: Visualização do catálogo de dados no Databricks Unity Catalog Explorer contendo a tabela fato (`fact_listings`) e as dimensões associadas.*
+
+#### 7.3.1. Validação de Volumetria e Integridade Relacional
+Após a carga da camada Gold, a checagem de consistência executada no notebook [`04_analytics_insights.ipynb`](./04_analytics_insights.ipynb) atestou a integridade relacional e a ausência de anomalias na modelagem:
+
+* **Preservação de Volumetria (`fact_listings`):** Retenção exata de **48.713 registros** (100,00% de paridade com a camada Silver, confirmando que nenhum evento de negócio foi descartado na modelagem).
+* **Ausência de Registros Órfãos (Integridade de PK/FK):** Validação de que 100% das Chaves Estrangeiras (`host_id`, `location_id`, `property_id`) presentes na tabela fato possuem correspondência determinística única ($1:N$) nas tabelas de dimensão associadas.
