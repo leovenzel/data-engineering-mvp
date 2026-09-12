@@ -371,3 +371,202 @@ Após a carga da camada Gold, a checagem de consistência executada no notebook 
 
 * **Preservação de Volumetria (`fact_listings`):** Retenção exata de **48.713 registros** (100,00% de paridade com a camada Silver, confirmando que nenhum evento de negócio foi descartado na modelagem).
 * **Ausência de Registros Órfãos (Integridade de PK/FK):** Validação de que 100% das Chaves Estrangeiras (`host_id`, `location_id`, `property_id`) presentes na tabela fato possuem correspondência determinística única ($1:N$) nas tabelas de dimensão associadas.
+
+---
+
+## 8. Análise de Dados e Resposta às Perguntas de Negócio (Etapa 4.5)
+
+Com a camada Gold modelada no padrão Star Schema e governada no **Unity Catalog**, o notebook [`04_analytics_insights.ipynb`](./04_analytics_insights.ipynb) foi executado para extrair respostas estratégicas para as **5 Perguntas de Negócio** formuladas na Etapa 4.1.
+
+A implementação utiliza a API distribuída do **PySpark** sobre as tabelas do catálogo (`fact_listings`, `dim_location`, `dim_property` e `dim_host`), adotando o **Preço Mediano** como métrica central para anular a distorção causada por *outliers* de altíssima precificação.
+
+### 8.1. Pergunta 1: Qual a variação de preço médio e mediano por Zona Geográfica?
+
+#### 1. Implementação Técnica (PySpark)
+```python
+# Cruzamento da Fato com a Dimensão de Localização por Zona
+p1 = fact.join(dim_loc, "location_id") \
+    .groupBy("zone") \
+    .agg(
+        round(avg("price"), 2).alias("preco_medio"),
+        median("price").alias("preco_mediano"),
+        count("property_id").alias("total_anuncios")
+    ).orderBy(col("preco_mediano").desc())
+display(p1)
+
+```
+
+#### 2. Tabela de Resultados Obtidos
+| zone | preco_medio (R$) | preco_mediano (R$) | total_anuncios |
+| :--- | :--- | :--- | :--- |
+| **Zona Oeste** | 1.052,54 | **536,50** | 8.826 |
+| **Zona Sul** | 894,15 | **502,00** | 27.545 |
+| **Outros** | 881,30 | **334,00** | 5.930 |
+| **Zona Norte** | 521,09 | **290,00** | 863 |
+| **Centro** | 574,48 | **289,56** | 5.549 |
+
+#### 3. Discussão e Análise dos Resultados
+* **Liderança da Zona Oeste e Zona Sul:** A **Zona Oeste** apresenta a maior mediana de preço (536,50), impulsionada por imóveis de grande porte na Barra da Tijuca e Recreio. A **Zona Sul** lidera em volume absoluto de oferta (27.545 anúncios, representando 56,5% da base) mantendo um preço mediano elevado de 502,00.
+* **Efeito Outliers (Média vs. Mediana):** Em todas as regiões a média aritmética supera fortemente a mediana. Na Zona Oeste, a média atinge 1.052,54 (96% acima da mediana), evidenciando a presença de mansões/coberturas de altíssimo luxo que distorcem a média geral.
+* **Acessibilidade no Centro e Zona Norte:** O **Centro** (289,56) e a **Zona Norte** (290,00) registram as menores medianas, atuando como zonas de hospedagem econômica.
+
+### 8.2. Pergunta 2: Qual o impacto das comodidades críticas (Ar-Condicionado e Vista para o Mar) na precificação?
+
+#### 1. Implementação Técnica (PySpark)
+```python
+# Agregação por atributos binários da Dimensão de Propriedade
+p2 = fact.join(dim_prop, "property_id") \
+    .groupBy("has_air_conditioning", "has_sea_view") \
+    .agg(
+        median("price").alias("preco_mediano"),
+        round(avg("price"), 2).alias("preco_medio"),
+        count("property_id").alias("total_anuncios")
+    )
+display(p2)
+
+```
+
+#### 2. Tabela de Resultados Obtidos
+| has_air_conditioning | has_sea_view | preco_mediano (R$) | preco_medio (R$) | total_anuncios |
+| :--- | :--- | :--- | :--- | :--- |
+| `false` | `true` | **479,15** | 834,19 | 4.032 |
+| `true` | `true` | **540,00** | 1.094,22 | 3.977 |
+| `true` | `false` | **476,50** | 948,72 | 28.111 |
+| `false` | `false` | **366,00** | 666,36 | 12.593 |
+
+#### 3. Discussão e Análise dos Resultados
+* **O Prêmio Combinado de Luxo:** A combinação de **Ar-Condicionado + Vista para o Mar** atinge a maior mediana da base (**540,00**), gerando um prêmio de **47,5%** em relação a imóveis que não possuem nenhuma dessas duas comodidades (366,00).
+* **Predominância do Ar-Condicionado:** Imóveis com ar-condicionado representam a grande maioria da oferta (32.088 imóveis ou 65,8% da base). A ausência de ambas as comodidades derruba o preço mediano para 366,00.
+
+### 8.3. Pergunta 3: Anfitriões classificados como Superhosts possuem notas de avaliação e preços superiores?
+
+#### 1. Implementação Técnica (PySpark)
+```python
+# Comparativo de reputação e preço via Dimensão de Anfitrião
+p3 = fact.join(dim_host, "host_id") \
+    .groupBy("is_superhost") \
+    .agg(
+        round(avg("review_score"), 2).alias("nota_media"),
+        median("price").alias("preco_mediano"),
+        count("property_id").alias("total_anuncios")
+    )
+display(p3)
+
+```
+
+#### 2. Tabela de Resultados Obtidos
+| is_superhost | nota_media (0-5) | preco_mediano (R$) | total_anuncios |
+| :--- | :--- | :--- | :--- |
+| `true` | **4.88** | **416,33** | 17.416 |
+| `false` | **4.75** | **477,00** | 31.297 |
+
+#### 3. Discussão e Análise dos Resultados
+* **Vantagem Qualitativa dos Superhosts:** Anfitriões com selo Superhost apresentam nota média de avaliação superior (**4,88 vs. 4,75**), atestando maior excelência na experiência oferecida ao hóspede.
+* **Estratégia de Competitividade Monetária:** Os Superhosts praticam um preço mediano **menor (416,33)** do que anfitriões comuns (477,00). Isso demonstra que o selo é conquistado via alta rotatividade, preços competitivos e excelente serviço, e não por precificação inflacionada.
+
+### 8.4. Pergunta 4: Qual a concentração de mercado por perfil de anfitrião (Multi-Proprietário vs. Individual)?
+
+#### 1. Implementação Técnica (PySpark)
+```python
+# Categorização on-the-fly de perfil profissional baseada no volume de imóveis
+p4 = fact.join(dim_host, "host_id") \
+    .withColumn("perfil_anfitricao", 
+        when(col("host_listings_count") > 1, "Multi-Proprietário (Profissional)")
+        .otherwise("Individual (Amador)")
+    ) \
+    .groupBy("perfil_anfitricao") \
+    .agg(
+        count("property_id").alias("total_anuncios"),
+        round((count("property_id") / fact.count()) * 100, 2).alias("percentual_mercado"),
+        median("price").alias("preco_mediano")
+    )
+display(p4)
+
+```
+
+#### 2. Tabela de Resultados Obtidos
+| perfil_anfitricao | total_anuncios | percentual_mercado (%) | preco_mediano (R$) |
+| :--- | :--- | :--- | :--- |
+| **Multi-Proprietário (Profissional)** | **30.176** | **61,95%** | **433,07** |
+| **Individual (Amador)** | **18.537** | **38,05%** | **485,00** |
+
+#### 3. Discussão e Análise dos Resultados
+* **Forte Profissionalização do Mercado:** Anfitriões que possuem mais de 1 imóvel dominam o mercado carioca, controlando **61,95% de todos os anúncios ativos (30.176 imóveis)**.
+* **Precificação Operacional:** Os Multi-Proprietários praticam preços medianos ligeiramente menores (433,07 vs. 485,00 dos individuais), valendo-se da escala de gestão para otimizar a ocupação.
+
+### 8.5. Pergunta 5: Qual a relação entre a exigência de Mínimo de Noites e o valor da diária?
+
+#### 1. Implementação Técnica (PySpark)
+```python
+# Categorização por faixas de exigência de estadias mínimas
+p5 = fact \
+    .withColumn("categoria_estadia", 
+        when(col("minimum_nights") <= 2, "Curta (1-2 noites)")
+        .when((col("minimum_nights") >= 3) & (col("minimum_nights") <= 7), "Média (3-7 noites)")
+        .otherwise("Longa (8+ noites)")
+    ) \
+    .groupBy("categoria_estadia") \
+    .agg(
+        median("price").alias("preco_mediano"),
+        count("property_id").alias("total_anuncios")
+    )
+display(p5)
+
+```
+#### 2. Tabela de Resultados Obtidos
+| categoria_estadia | preco_mediano (R$) | total_anuncios |
+| :--- | :--- | :--- |
+| **Longa (8+ noites)** | **627,41** | 1.437 |
+| **Média (3-7 noites)** | **544,50** | 12.248 |
+| **Curta (1-2 noites)** | **426,50** | **35.028** |
+
+#### 3. Discussão e Análise dos Resultados
+* **Concentração em Estadias Curtas:** A grande maioria dos anúncios (**35.028 imóveis ou 71,9% da base**) exige no máximo 1 a 2 noites de reserva, atendendo ao perfil turístico focado em finais de semana e viagens breves.
+* **Precificação por Exigência de Permanência:** Imóveis que exigem estadias longas (8+ noites) possuem a maior mediana de diária (**627,41**), refletindo propriedades de maior porte/luxo onde os proprietários preferem locações prolongadas para reduzir custos operacionais de entrega de chaves e taxa de rotatividade.
+
+## 9. Autoavaliação e Trabalhos Futuros
+
+### 9.1. Atingimento dos Objetivos Propostos
+O projeto atingiu com êxito os seus objetivos fundamentais de Engenharia de Dados:
+* **Arquitetura Medallion:** Estruturação completa das camadas Bronze (Raw/Ingestão), Silver (Purificação/Qualidade) e Gold (Modelagem Dimensional Star Schema).
+* **Governança no Lakehouse:** Todas as tabelas foram devidamente registradas e catalogadas sob a governança do **Unity Catalog** no ecossistema Databricks.
+* **Respostas às Perguntas de Negócio:** A camada Gold permitiu responder de forma performática e fundamentada às 5 perguntas de negócio formuladas, utilizando métricas estatísticas robustas (Preço Mediano) para contornar a assimetria do mercado imobiliário do Rio de Janeiro.
+
+---
+
+### 9.2. Dificuldades Encontradas e Curva de Aprendizado
+
+1. **Curva de Aprendizado da Plataforma, Paradigma Distribuído e Suporte por IA:**
+   A transição da manipulação convencional em *single-node* (Pandas/Python local) para o ecossistema distribuído do **Databricks com PySpark** exigiu a superação de uma curva de aprendizado técnica significativa. O gerenciamento de tipos de dados nativos do Spark, o uso eficiente de funções agregadas distribuídas (`join`, `groupBy`, `agg`) e a configuração de governança e linhagem no Unity Catalog impuseram desafios práticos. Neste cenário, a utilização de **Inteligência Artificial Generativa (IA)** atuou como um parceiro técnico essencial, acelerando a resolução de dúvidas, otimizando o código e viabilizando a entrega de uma documentação de alta qualidade técnica dentro do prazo estipulado.
+
+2. **Geração de Chaves Surrogate sem IDs Nativo:**
+   A ausência de chaves primárias únicas nas fontes originais para as dimensões de localização e imóvel exigiu o uso de engenharia de chaves via hashing (`md5`/`sha2`). Garantir que a geração das hashes mantivesse 100% de paridade determinística e integridade relacional entre a tabela fato e as dimensões demandou rigor nos testes de validação.
+
+3. **Tratamento e Sanitização do Dataset Sujo:**
+   A manipulação de campos textuais desformatados na camada Bronze (como a coluna `price` contendo caracteres monetários `$` e vírgulas) exigiu a criação de rotinas de higienização rígidas na Silver para evitar propagação de nulos ou parsing incorreto de tipos numéricos.
+
+---
+
+### 9.3. Limitações da Solução Atual
+
+* **Ausência de Histórico Temporal (Snapshots Múltiplos):**
+  A base de dados utilizada reflete um recorte estático (*cross-sectional*) de um único ponto no tempo. A falta de um histórico longitudinal (múltiplos arquivos históricos ao longo dos meses/anos) impede o rastreamento da variação de preços por sazonalidade (ex: alta temporada de verão vs. inverno) e restringe o treinamento de modelos de Machine Learning para previsão preditiva de preços e demand forecasting com componente temporal.
+* **Ingestão Manual vs. Pipeline Automatizado:**
+  A ingestão da camada Bronze ainda depende do download e persistência estática dos dados brutos no Volume do Unity Catalog, não contando com uma rotina automatizada de ingestão contínua diretamente da fonte.
+
+---
+
+### 9.4. Trabalhos Futuros para Evolução do Portfólio
+
+Para expandir o projeto e elevar a solução a um nível de produção *enterprise*, são propostas as seguintes evoluções:
+
+1. **Automação da Ingestão de Dados (Pipelines e Orquestração):**
+   * Implementação de rotinas automatizadas de *scraping* ou consumo direto via API dos *datasets* atualizados do Inside Airbnb.
+   * Orquestração do fluxo Medallion através de **Databricks Workflows (Jobs)** ou **Apache Airflow**, com agendamento automático e alertas de falha.
+2. **Implementação de Delta Live Tables (DLT):**
+   * Migração do pipeline tradicional PySpark para Delta Live Tables, incorporando suporte nativo a *expectations* (regras de validação de qualidade de dados em tempo real na ingestão).
+3. **Evolução Histórica e Camada Preditiva (MLOps):**
+   * Estruturação de um mecanismo de carga histórica para armazenar múltiplos *snapshots* mensais na camada Silver utilizando tabelas Delta com controle de versão (*Time Travel*).
+   * Integração de um pipeline de **Machine Learning (MLflow)** treinado sobre a camada Gold para estimativa de preço sugerido de diárias com base no histórico temporal e características do imóvel.
+4. **Visualização de Dados (Dashboards em BI):**
+   * Conexão do Unity Catalog com ferramentas de BI (Power BI, Tableau ou Databricks SQL Dashboards) para disponibilizar painéis executivos interativos às partes interessadas de negócio.
