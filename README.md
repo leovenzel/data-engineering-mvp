@@ -561,12 +561,15 @@ O projeto atingiu com êxito os seus objetivos fundamentais de Engenharia de Dad
 Para expandir o projeto e elevar a solução a um nível de produção *enterprise*, são propostas as seguintes evoluções:
 
 1. **Automação da Ingestão de Dados (Pipelines e Orquestração):**
-   * Implementação de rotinas automatizadas de *scraping* ou consumo direto via API dos *datasets* atualizados do Inside Airbnb.
-   * Orquestração do fluxo Medallion através de **Databricks Workflows (Jobs)** ou **Apache Airflow**, com agendamento automático e alertas de falha.
+   * Implementação de rotinas automatizadas de *scraping* ou consumo direto via API dos *datasets* atualizados do Inside Airbnb.
+   * Orquestração do fluxo Medallion através de **Databricks Workflows (Jobs)** ou **Apache Airflow**, com agendamento automático e alertas de falha.
+
 2. **Implementação de Delta Live Tables (DLT):**
-   * Migração do pipeline tradicional PySpark para Delta Live Tables, incorporando suporte nativo a *expectations* (regras de validação de qualidade de dados em tempo real na ingestão).
+   * Migração do pipeline tradicional PySpark para Delta Live Tables, incorporando suporte nativo a *expectations* (regras de validação de qualidade de dados em tempo real na ingestão).
+
 3. **Evolução Histórica e Camada Preditiva (MLOps):**
-   * Estruturação de um mecanismo de carga histórica para armazenar múltiplos *snapshots* mensais na camada Silver utilizando tabelas Delta com controle de versão (*Time Travel*).
-   * Integração de um pipeline de **Machine Learning (MLflow)** treinado sobre a camada Gold para estimativa de preço sugerido de diárias com base no histórico temporal e características do imóvel.
+   * Estruturação de um mecanismo de carga histórica para armazenar múltiplos *snapshots* mensais na camada Silver utilizando tabelas Delta com controle de versão (*Time Travel*).
+   * Integração de um pipeline de **Machine Learning (MLflow)** treinado sobre a camada Gold para estimativa de preço sugerido de diárias com base no histórico temporal e características do imóvel.
+
 4. **Visualização de Dados (Dashboards em BI):**
-   * Conexão do Unity Catalog com ferramentas de BI (Power BI, Tableau ou Databricks SQL Dashboards) para disponibilizar painéis executivos interativos às partes interessadas de negócio.
+   * Conexão do Unity Catalog com ferramentas de BI (Power BI, Tableau ou Databricks SQL Dashboards) para disponibilizar painéis executivos interativos às partes interessadas de negócio.
