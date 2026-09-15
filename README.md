@@ -104,7 +104,8 @@ df_bronze.write.format("delta") \
 
 ---
 
-## 5. Arquitetura do Pipeline de Dados ETL (`Etapa 4.4`)
+## 5. Arquitetura do Pipeline de Dados ETL
+> **Mapeamento de Requisitos da Avaliação:** Atendimento à **Etapa 4.4 (Pipeline de Dados)** do edital.
 
 ### 5.1. Organização e Modularização do Pipeline
 Para garantir manutenibilidade, reuso de código, isolamento de falhas e auditoria em ambiente produtivo, o processo de ETL/ELT não foi concentrado em um único script monolítico. O pipeline foi estrategicamente desacoplado em **4 notebooks especializados**, executados de forma sequencial e alinhados às etapas da Arquitetura Medalhão:
