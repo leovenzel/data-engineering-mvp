@@ -1,9 +1,10 @@
 # MVP de Engenharia de Dados - Pipeline Medalhão & Governança no Databricks (Inside Airbnb RJ)
 
 ## 1. Contexto de Negócio e Motivação
+> **Mapeamento de Requisitos da Avaliação:** Atendimento às **Etapas 2 e 4.1** do edital.
 
 ### 1.1. Conexão e Evolução em Relação ao MVP de Machine Learning
-No projeto anterior, focado no desenvolvimento de um modelo preditivo para estimativa de diárias por temporada no Rio de Janeiro (via *Gradient Boosting Regressor*), identificou-se uma limitação crítica nos dados consumidos: o **Underfitting Estrutural por Ausência de Dados Qualitativos**. O modelo de ML ficou restrito a variáveis quantitativas e físicas (como número de quartos e banheiros), atingindo um teto de aprendizado ($R^2 = 0.3478$). Naquele relatório, apontou-se como evolução indispensável a estruturação de dados qualitativos e reputacionais (comodidades como ar-condicionado, piscina, vista para o mar, notas de avaliação e selo de *Superhost*).
+No projeto anterior — desenvolvido e registrado no repositório [leovenzel/ml-mvp](https://github.com/leovenzel/ml-mvp) —, focado na criação de um modelo preditivo para estimativa de diárias por temporada no Rio de Janeiro (via *Gradient Boosting Regressor*), identificou-se uma limitação crítica nos dados consumidos: o **Underfitting Estrutural por Ausência de Dados Qualitativos**. O modelo de ML ficou restrito a variáveis quantitativas e físicas (como número de quartos e banheiros), atingindo um teto de aprendizado ($R^2 = 0.3478$). Naquele relatório, apontou-se como evolução indispensável a estruturação de dados qualitativos e reputacionais (comodidades como ar-condicionado, piscina, vista para o mar, notas de avaliação e selo de *Superhost*).
 
 Este MVP de Engenharia de Dados **não busca retreinar ou alterar o modelo preditivo anterior**. Seu propósito é construir a infraestrutura moderna de Lakehouse que viabilize, padronize e facilite análises e modelagens futuras. Através da arquitetura Medalhão no Databricks, este trabalho atua como a camada fundacional de Engenharia, transformando dados brutos e desestruturados em um catálogo governado e modelado.
 
