@@ -44,6 +44,7 @@ Para direcionar as transformações da Camada Silver e a modelagem dimensional d
 ---
 
 ## 4. Carga e Ingestão de Dados (Camada Bronze)
+> **Mapeamento de Requisitos da Avaliação:** Atendimento à **Etapa 4.2 (Carga dos Dados)** do edital.
 
 ### 4.1. Estratégia de Coleta e Armazenamento Bruto
 A etapa de coleta e ingestão dos dados (*Data Ingestion*) foi projetada para garantir a rastreabilidade e a reprodutibilidade integral da fonte original sem modificar as características nativas do conjunto de dados:
@@ -69,7 +70,10 @@ A carga dos dados brutos para o Data Lakehouse foi automatizada através do scri
   * `_source_file`: Identificador do arquivo de origem.
 
 ```python
+from pyspark.sql.functions import current_timestamp, lit
+
 # Trecho do script PySpark de Ingestão (01_ingestion_bronze)
+
 raw_path = "/Volumes/workspace/default/raw_data/listings.csv.gz"
 
 df_raw = spark.read.format("csv") \
@@ -81,7 +85,6 @@ df_raw = spark.read.format("csv") \
     .load(raw_path)
 
 # Adição de Metadados de Auditoria e Persistência na Camada Bronze
-from pyspark.sql.functions import current_timestamp, lit
 
 df_bronze = df_raw \
     .withColumn("_ingestion_timestamp", current_timestamp()) \
@@ -94,7 +97,7 @@ df_bronze.write.format("delta") \
 
 ```
 
-* **Referência ao Código Fonte:** O código completo e executável desta etapa encontra-se versionado no repositório no arquivo [`01_ingestion_bronze.ipynb`](https://www.google.com/search?q=./01_ingestion_bronze).
+* **Referência ao Código Fonte:** O código completo e executável desta etapa encontra-se versionado no repositório no arquivo [`01_ingestion_bronze.ipynb`](./01_ingestion_bronze.ipynb).
 
 ![Amostra da Tabela Bronze](./docs/02_bronze_table_sample.png)
 *Figura 2: Registros brutos persistidos na tabela Delta bronze_listings com colunas de auditoria.*
