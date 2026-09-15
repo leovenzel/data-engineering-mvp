@@ -140,7 +140,8 @@ Todas as tabelas do pipeline são salvas e governadas nativamente na nuvem atrav
 
 ---
 
-## 6. Qualidade de Dados, Limpeza e Transformações (Etapa 4.5 - Camada Silver)
+## 6. Qualidade de Dados, Limpeza e Transformações (Camada Silver)
+> **Mapeamento de Requisitos da Avaliação:** Atendimento à **Etapa 4.5 (Qualidade de Dados)** do edital.
 
 ### 6.1. Diagnóstico de Anomalias e Qualidade dos Dados Brutos
 Durante a fase de perfilamento da camada Bronze (`bronze_listings`), foram identificadas inconformidades operacionais, falhas de schema e ruídos de texto livre que comprometeriam as análises e a modelagem dimensional. A tabela a seguir sintetiza as falhas detectadas e as respectivas ações de engenharia aplicadas no notebook **`02_transformation_silver.ipynb`**:
@@ -167,7 +168,7 @@ Para viabilizar análises comparativas de preço e disponibilidade por regiões 
 
 ```python
 # Trecho de higienização, tipagem e deduplicação (02_transformation_silver)
-from pyspark.sql.functions import col, regexp_replace, when, trim
+from pyspark.sql.functions import col, regexp_replace, when, trim, lit
 
 # Seleção, sanitização de tipos e criação de métricas
 df_silver = df_bronze.filter(
