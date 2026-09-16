@@ -217,8 +217,6 @@ Embora funcional para o escopo preditivo inicial, aquela abordagem evidenciou li
 
 A motivação do presente projeto é justamente **superar as limitações do MVP preditivo**, construindo uma infraestrutura robusta e governada baseada na **Arquitetura Medallion em Databricks (Delta Lake e Unity Catalog)**. Em vez de uma tabela plana isolada para treino de ML, este pipeline ingere a base bruta integral (`listings.csv.gz` com ~80 MB e 92 colunas), garantindo limpeza automatizada, transações ACID e modelagem relacional para consumo analítico corporativo.
 
----
-
 #### 6.4.2. Volumetria, Integridade e Tratamento de Anomalias na Camada Silver
 A execução do notebook de auditoria [`00_exploracao_silver.ipynb`](./00_exploracao_silver.ipynb) e as diretrizes extraídas da Análise Exploratória de Dados (EDA) fundamentaram as regras de engenharia aplicadas no PySpark:
 
@@ -226,8 +224,6 @@ A execução do notebook de auditoria [`00_exploracao_silver.ipynb`](./00_explor
 * **Otimização do Esquema (Colunas):** Houve uma redução de **92 colunas brutas** na Bronze para **25 colunas analíticas** na Silver (eliminação de 67 campos ruidosos ou vazios).
 * **Solução para Alta Cardinalidade de Bairros:** Enquanto no MVP utilizou-se agrupamento por frequência via `OneHotEncoder(min_frequency=0.01)` (rotulando bairros periféricos como "infrequent"), no Lakehouse aplicou-se o mapeamento relacional dos 150+ bairros nas **5 Macrozonas Geográficas (`zone`)**, garantindo um agrupamento de negócio direto sem perda de contexto territorial.
 * **Resolução de Multicolinearidade:** Otimização dos atributos de histórico de avaliações, retendo métricas quantitativas consolidadas (`number_of_reviews`, `review_scores_rating`) e descartando métricas colineares de curto prazo (`number_of_reviews_ltm`).
-
----
 
 #### 6.4.3. Tabela Comparativa de Evolução Técnica
 
@@ -248,7 +244,8 @@ A execução do notebook de auditoria [`00_exploracao_silver.ipynb`](./00_explor
 
 ---
 
-## 7. Modelagem e Catálogo de Dados (Etapa 4.3 - Camada Gold)
+## 7. Modelagem e Catálogo de Dados (Camada Gold)
+> **Mapeamento de Requisitos da Avaliação:** Atendimento à **Etapa 4.3 (Modelagem Dimensional)** e **Etapa 3 (Dicionário de Dados)** do edital.
 
 ### 7.1. Arquitetura da Modelagem Dimensional (Star Schema)
 Para viabilizar consultas analíticas de alta performance e responder às Perguntas de Negócio formuladas na Etapa 4.1, a camada Gold foi estruturada no padrão **Star Schema (Esquema Estrela)**. 
@@ -303,9 +300,6 @@ erDiagram
     dim_location ||--o{ fact_listings : "1 : N"
     dim_property ||--o{ fact_listings : "1 : N"
 ```
-
----
-
 ### 7.2. Documentação e Transcrição do Catálogo de Dados
 
 #### 1. Tabela Fato: `workspace.default.fact_listings`
@@ -322,8 +316,6 @@ erDiagram
 | `number_of_reviews` | `INT` | Not Null | Total acumulado de avaliações recebidas pelo imóvel. |
 | `review_scores_rating` | `DOUBLE` | Nullable | Nota média de avaliação do imóvel (escala de 0.00 a 5.00). |
 
----
-
 #### 2. Tabela Dimensão: `workspace.default.dim_host`
 * **Descrição:** Centraliza o perfil reputacional e a estrutura de portfólio dos anfitriões.
 
@@ -332,8 +324,6 @@ erDiagram
 | `host_id` | `BIGINT` | Primary Key | Identificador único do anfitrião na plataforma. |
 | `host_is_superhost` | `BOOLEAN` | Not Null | Flag binária do selo de qualidade Superhost (`TRUE`/`FALSE`). |
 | `is_multi_host` | `BOOLEAN` | Not Null | Flag que indica se o anfitrião possui 2 ou mais imóveis sob gestão. |
-
----
 
 #### 3. Tabela Dimensão: `workspace.default.dim_location`
 * **Descrição:** Estrutura a hierarquia territorial e o posicionamento geográfico dos imóveis.
@@ -345,8 +335,6 @@ erDiagram
 | `macro_zone` | `STRING` | Not Null | Agrupamento regional (`Zona Sul`, `Zona Norte`, `Zona Oeste`, `Centro`, `Outros`). |
 | `latitude` | `DOUBLE` | Not Null | Coordenada geográfica de latitude decimal. |
 | `longitude` | `DOUBLE` | Not Null | Coordenada geográfica de longitude decimal. |
-
----
 
 #### 4. Tabela Dimensão: `workspace.default.dim_property`
 * **Descrição:** Classifica a infraestrutura física e os atributos de comodidade das acomodações.
@@ -361,8 +349,6 @@ erDiagram
 | `beds` | `INT` | Nullable | Número de camas disponíveis. |
 | `has_air_conditioning` | `BOOLEAN` | Not Null | Flag indicativa de presença de Ar-Condicionado (`TRUE`/`FALSE`). |
 | `has_sea_view` | `BOOLEAN` | Not Null | Flag indicativa de presença de Vista para o Mar (`TRUE`/`FALSE`). |
-
----
 
 ### 7.3. Evidência de Implementação e Registro no Catálogo
 
