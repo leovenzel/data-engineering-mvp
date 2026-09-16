@@ -245,7 +245,7 @@ A execução do notebook de auditoria [`00_exploracao_silver.ipynb`](./00_explor
 ---
 
 ## 7. Modelagem e Catálogo de Dados (Camada Gold)
-> **Mapeamento de Requisitos da Avaliação:** Atendimento à **Etapa 4.3 (Modelagem Dimensional)** e **Etapa 3 (Dicionário de Dados)** do edital.
+> **Mapeamento de Requisitos da Avaliação:** Atendimento à **Etapa 4.3 (Modelagem e Catálogo de Dados)** do edital.
 
 ### 7.1. Arquitetura da Modelagem Dimensional (Star Schema)
 Para viabilizar consultas analíticas de alta performance e responder às Perguntas de Negócio formuladas na Etapa 4.1, a camada Gold foi estruturada no padrão **Star Schema (Esquema Estrela)**. 
