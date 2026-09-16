@@ -528,8 +528,6 @@ O projeto atingiu com êxito os seus objetivos fundamentais de Engenharia de Dad
 * **Governança no Lakehouse:** Todas as tabelas foram devidamente registradas e catalogadas sob a governança do **Unity Catalog** no ecossistema Databricks.
 * **Respostas às Perguntas de Negócio:** A camada Gold permitiu responder de forma performática e fundamentada às 5 perguntas de negócio formuladas, utilizando métricas estatísticas robustas (Preço Mediano) para contornar a assimetria do mercado imobiliário do Rio de Janeiro.
 
----
-
 ### 9.2. Dificuldades Encontradas e Curva de Aprendizado
 
 1. **Curva de Aprendizado da Plataforma, Paradigma Distribuído e Suporte por IA:**
@@ -541,16 +539,12 @@ O projeto atingiu com êxito os seus objetivos fundamentais de Engenharia de Dad
 3. **Tratamento e Sanitização do Dataset Sujo:**
    A manipulação de campos textuais desformatados na camada Bronze (como a coluna `price` contendo caracteres monetários `$` e vírgulas) exigiu a criação de rotinas de higienização rígidas na Silver para evitar propagação de nulos ou parsing incorreto de tipos numéricos.
 
----
-
 ### 9.3. Limitações da Solução Atual
 
 * **Ausência de Histórico Temporal (Snapshots Múltiplos):**
   A base de dados utilizada reflete um recorte estático (*cross-sectional*) de um único ponto no tempo. A falta de um histórico longitudinal (múltiplos arquivos históricos ao longo dos meses/anos) impede o rastreamento da variação de preços por sazonalidade (ex: alta temporada de verão vs. inverno) e restringe o treinamento de modelos de Machine Learning para previsão preditiva de preços e demand forecasting com componente temporal.
 * **Ingestão Manual vs. Pipeline Automatizado:**
   A ingestão da camada Bronze ainda depende do download e persistência estática dos dados brutos no Volume do Unity Catalog, não contando com uma rotina automatizada de ingestão contínua diretamente da fonte.
-
----
 
 ### 9.4. Trabalhos Futuros para Evolução do Portfólio
 
