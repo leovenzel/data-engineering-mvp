@@ -520,6 +520,7 @@ display(p5)
 ---
 
 ## 9. Autoavaliação e Trabalhos Futuros
+> **Mapeamento de Requisitos da Avaliação:** Atendimento à **etapa de autoavaliação e conclusão** do edital.
 
 ### 9.1. Atingimento dos Objetivos Propostos
 O projeto atingiu com êxito os seus objetivos fundamentais de Engenharia de Dados:
@@ -527,23 +528,29 @@ O projeto atingiu com êxito os seus objetivos fundamentais de Engenharia de Dad
 * **Governança no Lakehouse:** Todas as tabelas foram devidamente registradas e catalogadas sob a governança do **Unity Catalog** no ecossistema Databricks.
 * **Respostas às Perguntas de Negócio:** A camada Gold permitiu responder de forma performática e fundamentada às 5 perguntas de negócio formuladas, utilizando métricas estatísticas robustas (Preço Mediano) para contornar a assimetria do mercado imobiliário do Rio de Janeiro.
 
+---
+
 ### 9.2. Dificuldades Encontradas e Curva de Aprendizado
 
 1. **Curva de Aprendizado da Plataforma, Paradigma Distribuído e Suporte por IA:**
    A transição da manipulação convencional em *single-node* (Pandas/Python local) para o ecossistema distribuído do **Databricks com PySpark** exigiu a superação de uma curva de aprendizado técnica significativa. O gerenciamento de tipos de dados nativos do Spark, o uso eficiente de funções agregadas distribuídas (`join`, `groupBy`, `agg`) e a configuração de governança e linhagem no Unity Catalog impuseram desafios práticos. Neste cenário, a utilização de **Inteligência Artificial Generativa (IA)** atuou como um parceiro técnico essencial, acelerando a resolução de dúvidas, otimizando o código e viabilizando a entrega de uma documentação de alta qualidade técnica dentro do prazo estipulado.
 
-2. **Geração de Chaves Surrogate sem IDs Nativo:**
-   A ausência de chaves primárias únicas nas fontes originais para as dimensões de localização e imóvel exigiu o uso de engenharia de chaves via hashing (`md5`/`sha2`). Garantir que a geração das hashes mantivesse 100% de paridade determinística e integridade relacional entre a tabela fato e as dimensões demandou rigor nos testes de validação.
+2. **Geração de Chaves Surrogate sem IDs Nativos:**
+   A ausência de chaves primárias únicas nas fontes originais para as dimensões de localização e imóvel exigiu o uso de engenharia de chaves via hashing (`md5`/`sha2`). Garantir que a geração das hashes mantivesse 100% de paridade determinística e integridade relacional entre a tabela fato e as dimensões demandou rigor nos testes de validação.
 
 3. **Tratamento e Sanitização do Dataset Sujo:**
-   A manipulação de campos textuais desformatados na camada Bronze (como a coluna `price` contendo caracteres monetários `$` e vírgulas) exigiu a criação de rotinas de higienização rígidas na Silver para evitar propagação de nulos ou parsing incorreto de tipos numéricos.
+   A manipulação de campos textuais desformatados na camada Bronze (como a coluna `price` contendo caracteres monetários `$` e vírgulas) exigiu a criação de rotinas de higienização rígidas na Silver para evitar propagação de nulos ou parsing incorreto de tipos numéricos.
+
+---
 
 ### 9.3. Limitações da Solução Atual
 
 * **Ausência de Histórico Temporal (Snapshots Múltiplos):**
-  A base de dados utilizada reflete um recorte estático (*cross-sectional*) de um único ponto no tempo. A falta de um histórico longitudinal (múltiplos arquivos históricos ao longo dos meses/anos) impede o rastreamento da variação de preços por sazonalidade (ex: alta temporada de verão vs. inverno) e restringe o treinamento de modelos de Machine Learning para previsão preditiva de preços e demand forecasting com componente temporal.
+  A base de dados utilizada reflete um recorte estático (*cross-sectional*) de um único ponto no tempo. A falta de um histórico longitudinal (múltiplos arquivos históricos ao longo dos meses/anos) impede o rastreamento da variação de preços por sazonalidade (ex: alta temporada de verão vs. inverno) e restringe o treinamento de modelos de Machine Learning para previsão preditiva de preços e demand forecasting com componente temporal.
 * **Ingestão Manual vs. Pipeline Automatizado:**
-  A ingestão da camada Bronze ainda depende do download e persistência estática dos dados brutos no Volume do Unity Catalog, não contando com uma rotina automatizada de ingestão contínua diretamente da fonte.
+  A ingestão da camada Bronze ainda depende do download e persistência estática dos dados brutos no Volume do Unity Catalog, não contando com uma rotina automatizada de ingestão contínua diretamente da fonte.
+
+---
 
 ### 9.4. Trabalhos Futuros para Evolução do Portfólio
 
